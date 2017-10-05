@@ -161,7 +161,7 @@ end
          if (iscell(fhResizeChain))
             fhResizeChain{1}(fhResizeChain{2:end});
          else
-            fhResizeChain();
+            [~] = fhResizeChain();
          end
       else
          fhResizeChain = [];
@@ -171,19 +171,33 @@ end
       bIsHold = ishold(hAxes);
       hold all;
       
+      % - Is there a second Y axis?
+      bTwoYAxes = (numel(hAxes.YAxis) > 1);
+      
       % - Get current axis ranges
       vfXLim = xlim(hAxes);
-      vfYLim = ylim(hAxes);
+      vfYLim = hAxes.YAxis(1).Limits;
+      
+      if bTwoYAxes
+         hYYAxis = hAxes.YAxis(2);
+         vfYYLim = hYYAxis.Limits;
+      end
       
       % - Find first tick mark on each axis
       vfXTicks = get(hAxes, 'XTick');
-      vfYTicks = get(hAxes, 'YTick');
+      vfYTicks = hAxes.YAxis(1).TickValues;
+      
+      if bTwoYAxes
+         vfYYTicks = hYYAxis.TickValues;
+      end
       
       % - No X axis ticks, so don't draw a covering line
       bDrawXLine = numel(vfXTicks) > 1;
+      bDrawXYYLine = bTwoYAxes && (numel(vfXTicks) > 1);
       
       % - No Y axis ticks, so don't draw a covering line
       bDrawYLine = numel(vfYTicks) > 1;
+      bDrawYYLine = bTwoYAxes && (numel(vfYYTicks) > 1);
       
       % - If the first tick is flush at the corner, bump the axis limits
       if (vfXTicks(1) == vfXLim(1))
@@ -196,12 +210,42 @@ end
       if (vfYTicks(1) == vfYLim(1))
          fAxisLength = diff(vfYLim);
          vfYLim = [vfYLim(1) - fAxisLength * fAmount vfYLim(2)];
-         ylim(hAxes, vfYLim);
-         set(hAxes, 'YTick', vfYTicks);
+         hAxes.YAxis(1).Limits = vfYLim;
+         hAxes.YAxis(1).TickValues = vfYTicks;
+      end
+      
+      % - Bump limits for right Y axis
+      if (bTwoYAxes)
+         if (vfXTicks(end) == vfXLim(end))
+            fAxisLength = diff(vfXLim);
+            vfXLim = [vfXLim(1) vfXLim(2) + fAxisLength * fAmount];
+            xlim(hAxes, vfXLim);
+            set(hAxes, 'XTick', vfXTicks);
+         end
+         
+         if (vfYYTicks(1) == vfYYLim(1))
+            fAxisLength = diff(vfYYLim);
+            vfYYLim = [vfYYLim(1) - fAxisLength * fAmount vfYYLim(2)];
+            hYYAxis.Limits = vfYYLim;
+            hYYAxis.TickValues = vfYYTicks;
+         end
       end
       
       % - Get axis line width
-      fLineWidth = 2 * get(hAxes, 'LineWidth');
+      fLineWidth = get(hAxes, 'LineWidth');
+      
+      % - Get axis calibration
+      strUnits = hAxes.Units;
+      hAxes.Units = 'Pixels';
+      vfAxisSizePix = get(hAxes, 'Position');
+      hAxes.Units = strUnits;
+      
+      fUnitsPerPixX = diff(vfXLim) ./ vfAxisSizePix(3);
+      fUnitsPerPixY = diff(vfYLim) ./ vfAxisSizePix(4);
+      
+      if (bTwoYAxes)
+         fUnitsPerPixYY = diff(vfYYLim) ./ vfAxisSizePix(4);
+      end
       
       % - Get user data
       sUserData = get(hAxes, 'UserData');
@@ -217,6 +261,18 @@ end
          hYLine = sUserData.SARC_hYCoverLine;
       else
          hYLine = [];
+      end
+
+      if (isfield(sUserData, 'SARC_hYYCoverLine'))
+         hYYLine = sUserData.SARC_hYYCoverLine;
+      else
+         hYYLine = [];
+      end      
+      
+      if (isfield(sUserData, 'SARC_hXYYCoverLine'))
+         hXYYLine = sUserData.SARC_hXYYCoverLine;
+      else
+         hXYYLine = [];
       end
       
       % - Check for valid handles
@@ -238,22 +294,59 @@ end
          end
       end
       
+      if bTwoYAxes && (isempty(hYYLine) || ~ishandle(hYYLine))
+         yyaxis(hAxes, 'right');
+         hYYLine = plot(hAxes, nan, nan, 'w-');
+         if (isprop(hYYLine, 'LineSmoothing'))
+            w = warning('off', 'MATLAB:hg:willberemoved');
+            set(hYYLine, 'LineSmoothing', 'off');
+            warning(w);
+         end
+         yyaxis(hAxes, 'left');
+      end
+
+      if bTwoYAxes && (isempty(hXYYLine) || ~ishandle(hXYYLine))
+         yyaxis(hAxes, 'right');
+         hXYYLine = plot(hAxes, nan, nan, 'w-');
+         if (isprop(hXYYLine, 'LineSmoothing'))
+            w = warning('off', 'MATLAB:hg:willberemoved');
+            set(hXYYLine, 'LineSmoothing', 'off');
+            warning(w);
+         end
+         yyaxis(hAxes, 'left');
+      end
+      
+      
       % - Draw white lines covering the axes
       if (bDrawXLine)
-         set(hXLine, 'XData', [vfXLim(1) vfXTicks(1)], 'YData', vfYLim(1) * [1 1], 'LineWidth', fLineWidth);
+         set(hXLine, 'XData', [vfXLim(1)-2*fUnitsPerPixX*fLineWidth vfXTicks(1)-fUnitsPerPixX*fLineWidth/2], 'YData', vfYLim(1) * [1 1], 'LineWidth', fLineWidth+1);
       else
          set(hXLine, 'XData', nan, 'YData', nan);
       end
       
       if (bDrawYLine)
-         set(hYLine, 'YData', [vfYLim(1) vfYTicks(1)], 'XData', vfXLim(1) * [1 1], 'LineWidth', fLineWidth);
+         set(hYLine, 'YData', [vfYLim(1)-2*fUnitsPerPixY*fLineWidth vfYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(1) * [1 1], 'LineWidth', fLineWidth+1);
       else
          set(hYLine, 'XData', nan, 'YData', nan);
+      end
+      
+      if (bTwoYAxes && bDrawXYYLine)
+         set(hXYYLine, 'XData', [vfXTicks(end)+fUnitsPerPixX*fLineWidth/2 vfXLim(end)+2*fUnitsPerPixX*fLineWidth], 'YData', vfYYLim(1) * [1 1], 'LineWidth', fLineWidth+1);
+      else
+         set(hXYYLine, 'XData', nan, 'YData', nan);
+      end
+      
+      if (bTwoYAxes && bDrawYYLine)
+         set(hYYLine, 'YData', [vfYYLim(1)-2*fUnitsPerPixYY*fLineWidth vfYYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(2) * [1 1], 'LineWidth', fLineWidth+1);
+      else
+         set(hYYLine, 'XData', nan, 'YData', nan);
       end
       
       % - Save user data
       sUserData.SARC_hXCoverLine = hXLine;
       sUserData.SARC_hYCoverLine = hYLine;
+      sUserData.SARC_hXYYCoverLine = hXYYLine;
+      sUserData.SARC_hYYCoverLine = hYYLine;
       sUserData.SARC_fhResizeChain = fhResizeChain;
       set(hAxes, 'UserData', sUserData);
       
@@ -275,14 +368,18 @@ subplot(1, 2, 1);
 scatter(vfX, vfY);
 xlim([0 1]);
 ylim([0 1]);
+yyaxis right;
+scatter(vfX, vfY);
 
 subplot(1, 2, 2);
 scatter(vfX, vfY);
 xlim([0 1]);
 ylim([0 1]);
+yyaxis right;
+scatter(vfX, vfY);
 SeparateAxes;
 
-set(gcf, 'Units', 'pixels', 'Position', [0 0 1000 400]);
+set(gcf, 'Units', 'pixels', 'Position', [0 0 1000 400], 'Color', 'w');
 
 end
 

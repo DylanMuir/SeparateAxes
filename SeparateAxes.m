@@ -61,6 +61,11 @@ switch (strCommand)
    case 'on'
       % - Use callback to assign covering lines
       SA_ResizeCallback(hAxes, fAmount);
+
+      sUserData = get(hAxes, 'UserData');
+      sUserData.strOrigBox = get(hAxes, 'Box');
+      sUserData.strOrigTickDir = get(hAxes, 'TickDir');
+      set(hAxes, 'UserData', sUserData);
       
       % - Turn off box, outward tick direction
       set(hAxes, 'Box', 'off', 'TickDir', 'out');
@@ -90,9 +95,23 @@ switch (strCommand)
          delete(sUserData.SARC_hYCoverLine);
       end
       
+      if (isfield(sUserData, 'SARC_hXYYCoverLine'))
+         delete(sUserData.SARC_hXYYCoverLine);
+      end
+      
+      if (isfield(sUserData, 'SARC_hYYCoverLine'))
+         delete(sUserData.SARC_hYYCoverLine);
+      end
+      
       % - Set default appearance
-      set(hAxes, 'Box', 'on', 'TickDir', 'in');
+      set(hAxes, 'Box', sUserData.strOrigBox, 'TickDir', sUserData.strOrigTickDir);
       axis auto;
+      
+      if (numel(hAxes.YAxis) > 1)
+         yyaxis right;
+         axis auto;
+         yyaxis left;
+      end
 
    otherwise
       error('*** SeparateAxes: Error: Command [%s] not recognised. One of {''on'', ''off''} must be provided.', strCommand);
@@ -173,6 +192,9 @@ end
       
       % - Is there a second Y axis?
       bTwoYAxes = (numel(hAxes.YAxis) > 1);
+      if bTwoYAxes
+         yyaxis(hAxes, 'left');
+      end
       
       % - Get current axis ranges
       vfXLim = xlim(hAxes);
@@ -277,6 +299,9 @@ end
       
       % - Check for valid handles
       if (isempty(hXLine) || ~ishandle(hXLine))
+         if bTwoYAxes
+            yyaxis left;
+         end
          hXLine = plot(hAxes, nan, nan, 'w-');
          if (isprop(hXLine, 'LineSmoothing'))
             w = warning('off', 'MATLAB:hg:willberemoved');
@@ -286,6 +311,9 @@ end
       end
       
       if (isempty(hYLine) || ~ishandle(hYLine))
+         if bTwoYAxes
+            yyaxis left;
+         end
          hYLine = plot(hAxes, nan, nan, 'w-');
          if (isprop(hYLine, 'LineSmoothing'))
             w = warning('off', 'MATLAB:hg:willberemoved');
@@ -319,25 +347,25 @@ end
       
       % - Draw white lines covering the axes
       if (bDrawXLine)
-         set(hXLine, 'XData', [vfXLim(1)-2*fUnitsPerPixX*fLineWidth vfXTicks(1)-fUnitsPerPixX*fLineWidth/2], 'YData', vfYLim(1) * [1 1], 'LineWidth', fLineWidth+1);
+         set(hXLine, 'XData', [vfXLim(1)-2*fUnitsPerPixX*fLineWidth vfXTicks(1)-fUnitsPerPixX*fLineWidth/2], 'YData', vfYLim(1) * [1 1], 'LineWidth', fLineWidth*1.1);
       else
          set(hXLine, 'XData', nan, 'YData', nan);
       end
       
       if (bDrawYLine)
-         set(hYLine, 'YData', [vfYLim(1)-2*fUnitsPerPixY*fLineWidth vfYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(1) * [1 1], 'LineWidth', fLineWidth+1);
+         set(hYLine, 'YData', [vfYLim(1)-2*fUnitsPerPixY*fLineWidth vfYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(1) * [1 1], 'LineWidth', fLineWidth*1.1);
       else
          set(hYLine, 'XData', nan, 'YData', nan);
       end
       
       if (bTwoYAxes && bDrawXYYLine)
-         set(hXYYLine, 'XData', [vfXTicks(end)+fUnitsPerPixX*fLineWidth/2 vfXLim(end)+2*fUnitsPerPixX*fLineWidth], 'YData', vfYYLim(1) * [1 1], 'LineWidth', fLineWidth+1);
+         set(hXYYLine, 'XData', [vfXTicks(end)+fUnitsPerPixX*fLineWidth/2 vfXLim(end)+2*fUnitsPerPixX*fLineWidth], 'YData', vfYYLim(1) * [1 1], 'LineWidth', fLineWidth*1.1);
       else
          set(hXYYLine, 'XData', nan, 'YData', nan);
       end
       
       if (bTwoYAxes && bDrawYYLine)
-         set(hYYLine, 'YData', [vfYYLim(1)-2*fUnitsPerPixYY*fLineWidth vfYYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(2) * [1 1], 'LineWidth', fLineWidth+1);
+         set(hYYLine, 'YData', [vfYYLim(1)-2*fUnitsPerPixYY*fLineWidth vfYYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(2) * [1 1], 'LineWidth', fLineWidth*1.1);
       else
          set(hYYLine, 'XData', nan, 'YData', nan);
       end

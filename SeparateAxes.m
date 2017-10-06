@@ -365,7 +365,7 @@ end
       end
       
       if (bTwoYAxes && bDrawYYLine)
-         set(hYYLine, 'YData', [vfYYLim(1)-2*fUnitsPerPixYY*fLineWidth vfYYTicks(1)-fUnitsPerPixY*fLineWidth/2], 'XData', vfXLim(2) * [1 1], 'LineWidth', fLineWidth*1.1);
+         set(hYYLine, 'YData', [vfYYLim(1)-2*fUnitsPerPixYY*fLineWidth vfYYTicks(1)-fUnitsPerPixYY*fLineWidth/2], 'XData', vfXLim(2) * [1 1], 'LineWidth', fLineWidth*1.1);
       else
          set(hYYLine, 'XData', nan, 'YData', nan);
       end

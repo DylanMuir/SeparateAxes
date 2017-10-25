@@ -84,35 +84,54 @@ switch (strCommand)
       sUserData = get(hAxes, 'UserData');
       if (isfield(sUserData, 'SARC_fhResizeChain'))
          set(hParent, strResizeFcn, sUserData.SARC_fhResizeChain);
+         sUserData = rmfield(sUserData, 'SARC_fhResizeChain');
+      else
+         % - SeparateAxes hasn't been configured on this figure
+         return;
       end
       
       % - Remove covering lines
       if (isfield(sUserData, 'SARC_hXCoverLine'))
          delete(sUserData.SARC_hXCoverLine);
+         sUserData = rmfield(sUserData, 'SARC_hXCoverLine');
       end
       
       if (isfield(sUserData, 'SARC_hYCoverLine'))
          delete(sUserData.SARC_hYCoverLine);
+         sUserData = rmfield(sUserData, 'SARC_hYCoverLine');
       end
       
       if (isfield(sUserData, 'SARC_hXYYCoverLine'))
          delete(sUserData.SARC_hXYYCoverLine);
+         sUserData = rmfield(sUserData, 'SARC_hXYYCoverLine');
       end
       
       if (isfield(sUserData, 'SARC_hYYCoverLine'))
          delete(sUserData.SARC_hYYCoverLine);
+         sUserData = rmfield(sUserData, 'SARC_hYYCoverLine');
       end
       
       % - Set default appearance
-      set(hAxes, 'Box', sUserData.strOrigBox, 'TickDir', sUserData.strOrigTickDir);
-      axis auto;
-      
-      if (numel(hAxes.YAxis) > 1)
-         yyaxis right;
-         axis auto;
-         yyaxis left;
+      if (all(isfield(sUserData, {'strOrigBox', 'strOrigTickDir'})))
+         set(hAxes, 'Box', sUserData.strOrigBox, 'TickDir', sUserData.strOrigTickDir);
+         sUserData = rmfield(sUserData, {'strOrigBox', 'strOrigTickDir'});
       end
-
+      
+      
+      if (all(isfield(sUserData, {'vfXLim', 'vfYLim', 'vfYYLim'})))
+         xlim(sUserData.vfXLim);
+         hAxes.YAxis(1).Limits = sUserData.vfYLim;
+         if ~isempty(sUserData.vfYYLim)
+            yyaxis right;
+            ylim(sUserData.vfYYLim);
+            yyaxis left;
+         end
+         sUserData = rmfield(sUserData, {'vfXLim', 'vfYLim', 'vfYYLim'});
+      end
+      
+      % - Restore user data
+      set(hAxes, 'UserData', sUserData);
+      
    otherwise
       error('*** SeparateAxes: Error: Command [%s] not recognised. One of {''on'', ''off''} must be provided.', strCommand);
 end
@@ -203,74 +222,17 @@ end
       if bTwoYAxes
          hYYAxis = hAxes.YAxis(2);
          vfYYLim = hYYAxis.Limits;
-      end
-      
-      % - Find first tick mark on each axis
-      vfXTicks = get(hAxes, 'XTick');
-      vfYTicks = hAxes.YAxis(1).TickValues;
-      
-      if bTwoYAxes
-         vfYYTicks = hYYAxis.TickValues;
-      end
-      
-      % - No X axis ticks, so don't draw a covering line
-      bDrawXLine = numel(vfXTicks) > 1;
-      bDrawXYYLine = bTwoYAxes && (numel(vfXTicks) > 1);
-      
-      % - No Y axis ticks, so don't draw a covering line
-      bDrawYLine = numel(vfYTicks) > 1;
-      bDrawYYLine = bTwoYAxes && (numel(vfYYTicks) > 1);
-      
-      % - If the first tick is flush at the corner, bump the axis limits
-      if (vfXTicks(1) == vfXLim(1))
-         fAxisLength = diff(vfXLim);
-         vfXLim = [vfXLim(1) - fAxisLength * fAmount vfXLim(2)];
-         xlim(hAxes, vfXLim);
-         set(hAxes, 'XTick', vfXTicks);
-      end
-      
-      if (vfYTicks(1) == vfYLim(1))
-         fAxisLength = diff(vfYLim);
-         vfYLim = [vfYLim(1) - fAxisLength * fAmount vfYLim(2)];
-         hAxes.YAxis(1).Limits = vfYLim;
-         hAxes.YAxis(1).TickValues = vfYTicks;
-      end
-      
-      % - Bump limits for right Y axis
-      if (bTwoYAxes)
-         if (vfXTicks(end) == vfXLim(end))
-            fAxisLength = diff(vfXLim);
-            vfXLim = [vfXLim(1) vfXLim(2) + fAxisLength * fAmount];
-            xlim(hAxes, vfXLim);
-            set(hAxes, 'XTick', vfXTicks);
-         end
-         
-         if (vfYYTicks(1) == vfYYLim(1))
-            fAxisLength = diff(vfYYLim);
-            vfYYLim = [vfYYLim(1) - fAxisLength * fAmount vfYYLim(2)];
-            hYYAxis.Limits = vfYYLim;
-            hYYAxis.TickValues = vfYYTicks;
-         end
-      end
-      
-      % - Get axis line width
-      fLineWidth = get(hAxes, 'LineWidth');
-      
-      % - Get axis calibration
-      strUnits = hAxes.Units;
-      hAxes.Units = 'Pixels';
-      vfAxisSizePix = get(hAxes, 'Position');
-      hAxes.Units = strUnits;
-      
-      fUnitsPerPixX = diff(vfXLim) ./ vfAxisSizePix(3);
-      fUnitsPerPixY = diff(vfYLim) ./ vfAxisSizePix(4);
-      
-      if (bTwoYAxes)
-         fUnitsPerPixYY = diff(vfYYLim) ./ vfAxisSizePix(4);
+      else
+         vfYYLim = [];
       end
       
       % - Get user data
       sUserData = get(hAxes, 'UserData');
+      
+      % - Save original axis limits
+      sUserData.vfXLim = vfXLim;
+      sUserData.vfYLim = vfYLim;
+      sUserData.vfYYLim = vfYYLim;
       
       % - Do the line handles already exist?
       if (isfield(sUserData, 'SARC_hXCoverLine'))
@@ -343,7 +305,81 @@ end
          end
          yyaxis(hAxes, 'left');
       end
+
+      % - Find first tick mark on each axis
+      vfXTicks = get(hAxes, 'XTick');
+      vfYTicks = hAxes.YAxis(1).TickValues;
       
+      if bTwoYAxes
+         vfYYTicks = hYYAxis.TickValues;
+      end
+      
+      % - No X axis ticks, so don't draw a covering line
+      bDrawXLine = numel(vfXTicks) > 1;
+      bDrawXYYLine = bTwoYAxes && (numel(vfXTicks) > 1);
+      
+      % - No Y axis ticks, so don't draw a covering line
+      bDrawYLine = numel(vfYTicks) > 1;
+      bDrawYYLine = bTwoYAxes && (numel(vfYYTicks) > 1);
+      
+      % - If the axis is invisible, don't change anything, and erase lines
+      oVisible = get(hAxes, 'Visible');
+      if (isequal(oVisible, 'off') || (islogical(oVisible) && ~oVisible))
+         bDrawXLine = false;
+         bDrawXYYLine = false;
+         bDrawYLine = false;
+         bDrawYYLine = false;
+         
+      else
+         
+         % - If the first tick is flush at the corner, bump the axis limits
+         if (vfXTicks(1) == vfXLim(1))
+            fAxisLength = diff(vfXLim);
+            vfXLim = [vfXLim(1) - fAxisLength * fAmount vfXLim(2)];
+            xlim(hAxes, vfXLim);
+            set(hAxes, 'XTick', vfXTicks);
+         end
+         
+         if (vfYTicks(1) == vfYLim(1))
+            fAxisLength = diff(vfYLim);
+            vfYLim = [vfYLim(1) - fAxisLength * fAmount vfYLim(2)];
+            hAxes.YAxis(1).Limits = vfYLim;
+            hAxes.YAxis(1).TickValues = vfYTicks;
+         end
+         
+         % - Bump limits for right Y axis
+         if (bTwoYAxes)
+            if (vfXTicks(end) == vfXLim(end))
+               fAxisLength = diff(vfXLim);
+               vfXLim = [vfXLim(1) vfXLim(2) + fAxisLength * fAmount];
+               xlim(hAxes, vfXLim);
+               set(hAxes, 'XTick', vfXTicks);
+            end
+            
+            if (vfYYTicks(1) == vfYYLim(1))
+               fAxisLength = diff(vfYYLim);
+               vfYYLim = [vfYYLim(1) - fAxisLength * fAmount vfYYLim(2)];
+               hYYAxis.Limits = vfYYLim;
+               hYYAxis.TickValues = vfYYTicks;
+            end
+         end
+      end
+      
+      % - Get axis line width
+      fLineWidth = get(hAxes, 'LineWidth');
+      
+      % - Get axis calibration
+      strUnits = hAxes.Units;
+      hAxes.Units = 'Pixels';
+      vfAxisSizePix = get(hAxes, 'Position');
+      hAxes.Units = strUnits;
+      
+      fUnitsPerPixX = diff(vfXLim) ./ vfAxisSizePix(3);
+      fUnitsPerPixY = diff(vfYLim) ./ vfAxisSizePix(4);
+      
+      if (bTwoYAxes)
+         fUnitsPerPixYY = diff(vfYYLim) ./ vfAxisSizePix(4);
+      end
       
       % - Draw white lines covering the axes
       if (bDrawXLine)

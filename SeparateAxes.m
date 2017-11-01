@@ -308,10 +308,13 @@ end
 
       % - Find first tick mark on each axis
       vfXTicks = get(hAxes, 'XTick');
+      vfXTicks = vfXTicks((vfXTicks >= vfXLim(1)) & (vfXTicks <= vfXLim(2)));
       vfYTicks = hAxes.YAxis(1).TickValues;
+      vfYTicks = vfYTicks((vfYTicks >= vfYLim(1)) & (vfYTicks <= vfYLim(2)));
       
       if bTwoYAxes
          vfYYTicks = hYYAxis.TickValues;
+         vfYYTicks = vfYYTicks((vfYYTicks >= vfYYLim(1)) & (vfYYTicks <= vfYYLim(2)));
       end
       
       % - No X axis ticks, so don't draw a covering line
